@@ -1,0 +1,69 @@
+# ============================================================
+# Aurora PostgreSQL
+# ※ 実務ではAuroraを使用したが、AWS Free Planの制約により作成できないため、
+# ※ この構成はapply対象外。Terraformの参考実装としてコードのみ保存する。
+#
+#
+# 1. Aurora PostgreSQL Clusterを作成
+# 2. Cluster内にWriter Instanceを1台作成
+# 3. 既存のDB Subnet Group / Security Groupを使用
+#
+# ※ 学習環境のためWriter Instanceのみ作成
+# ※ Reader Instanceは作成しない
+# ※ インターネットから直接アクセスさせない
+# ============================================================
+
+
+# ------------------------------------------------------------
+# Aurora PostgreSQL Cluster
+# DBの論理的な単位・ストレージ・接続情報などを管理
+# ------------------------------------------------------------
+
+resource "aws_rds_cluster" "aurora_postgres" {
+  cluster_identifier = "sample-aurora-postgres"
+
+  engine = "aurora-postgresql"
+
+  master_username = var.db_username
+  master_password = var.db_password
+
+  db_subnet_group_name = aws_db_subnet_group.main.name
+
+  vpc_security_group_ids = [
+    aws_security_group.db.id
+  ]
+
+  # 学習環境のため削除時のSnapshotは作成しない
+  skip_final_snapshot = true
+
+  # 学習環境のため削除保護は無効
+  deletion_protection = false
+
+  tags = {
+    Name = "sample-aurora-postgres"
+  }
+}
+
+
+# ------------------------------------------------------------
+# Aurora PostgreSQL Instance
+# Cluster内で実際にDB処理を行うInstance
+# 今回はWriterとして1台のみ作成
+# ------------------------------------------------------------
+
+resource "aws_rds_cluster_instance" "aurora_writer" {
+  identifier = "sample-aurora-writer"
+
+  cluster_identifier = aws_rds_cluster.aurora_postgres.id
+
+  instance_class = "db.t3.medium"
+
+  engine         = aws_rds_cluster.aurora_postgres.engine
+  engine_version = aws_rds_cluster.aurora_postgres.engine_version
+
+  publicly_accessible = false
+
+  tags = {
+    Name = "sample-aurora-writer"
+  }
+}
